@@ -1,5 +1,6 @@
 class CustomGrid {
     constructor() {
+        this.isInitialized = false
         this.config = {
             pageSize: 10,
             usePagination: true,
@@ -34,6 +35,7 @@ class CustomGrid {
             },
             loadingControls: null,
             primaryKey: null,
+            emptyGridSubstitute: null,
             displayMode: "table",
             paginationMode: "replace",
             paginationMethod: "button",
@@ -129,7 +131,7 @@ class CustomGrid {
             //  Set config
             if (this.logLevels.debug)
                 console.debug("CustomGrid.init(): Setting configuration.")
-            
+
             config.styles = {
                 ...this.config.styles,
                 ...config.styles
@@ -160,15 +162,27 @@ class CustomGrid {
 
         //  Get data for page 0
         this.config.apiUrl = api
+        this.config.domElement = "#" + element
+        this.name = element
+        await this.init_meow()
+    }
+
+    async init_meow() {
         await this.getData(0)
         if (this.pages[0].data === null)
             return console.error("CustomGrid.init(): Data for page 0 is null.")
-        if (this.pages[0].data.count === 0)
+        if (this.pages[0].data.count === 0) {
+            this.renderEmptyGridSubstitute()
             return console.error("CustomGrid.init(): Data count for page 0 is 0.")
-        if (this.pages[0].data.result === null || this.pages[0].data.result === undefined)
+        }
+        if (this.pages[0].data.result === null || this.pages[0].data.result === undefined) {
+            this.renderEmptyGridSubstitute()
             return console.error("CustomGrid.init(): Data result for page 0 is null.")
-        if (this.pages[0].data.result.length === 0)
+        }
+        if (this.pages[0].data.result.length === 0) {
+            this.renderEmptyGridSubstitute()
             return console.error("CustomGrid.init(): Data result for page 0 is empty.")
+        }
 
         //  Calculate columns
         if (this.logLevels.debug)
@@ -224,8 +238,6 @@ class CustomGrid {
             console.debug("CustomGrid.init(): Columns calculated.", this.config.columns)
 
         //  Render grid && pageTo
-        this.config.domElement = "#" + element
-        this.name = element
         this.renderGrid()
         this.pageTo(0)
     }
@@ -234,7 +246,12 @@ class CustomGrid {
     async refresh() {
         this.pages = []
         this.dataWrites = 0
-        this.pageTo(this.currentPageIndex)
+        console.log(this.isInitialized)
+        console.log(this.isInitialized === false)
+        if (this.isInitialized === false)
+            await this.init_meow()
+        else 
+            this.pageTo(this.currentPageIndex ?? 0)
     }
 
     async pageTo(index) {
@@ -360,7 +377,17 @@ class CustomGrid {
     //#endregion
 
     //#region Render Actions
+    renderEmptyGridSubstitute() {
+        if (this.config.emptyGridSubstitute === null || this.config.emptyGridSubstitute === undefined)
+            return;
+
+        $(`#${this.config.emptyGridSubstitute}`).removeClass("hidden")
+    }
+
     renderGrid() {
+        if (this.config.emptyGridSubstitute !== null && this.config.emptyGridSubstitute !== undefined)
+            $(`#${this.config.emptyGridSubstitute}`).addClass("hidden")
+
         if (this.logLevels.debug)
             console.debug("CustomGrid.renderGrid(): Rendering grid.")
 
@@ -401,6 +428,7 @@ class CustomGrid {
         gridHtml += `</div>`
 
         $(this.config.domElement).html(gridHtml)
+        this.isInitialized = true
     }
 
     renderPages(pages = null) {
